@@ -3,6 +3,7 @@ import uuid
 import random
 import json
 import logging
+import time
 from gmqtt import Client as MQTTClient
 
 BROKER_HOST = "127.0.0.1"
@@ -27,7 +28,7 @@ async def producer_loop(client):
             target_topic = random.choice(TOPICS)
             payload = {
                 "value": round(random.uniform(20.0, 100.0), 2),
-                "unit": "metric",
+                "timestamp": time.time(),
                 "client_id": client._client_id
             }
             client.publish(target_topic, json.dumps(payload), qos=QOS)

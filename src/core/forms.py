@@ -54,7 +54,7 @@ def dynamic_mqtt_form() -> dict:
         .add_text(
             "topic",
             "Topic",
-            default="plotune/",
+            default="plotune/#",
         )
         .add_checkbox(
             "wild_topic",

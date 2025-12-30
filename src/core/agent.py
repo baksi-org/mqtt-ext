@@ -7,14 +7,13 @@ import logging
 import signal
 import time
 from threading import Thread
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable
 from asyncio import Task
 from multiprocessing import Process, Queue, Event
-from core.models import MQTTInput
+from core.models import MQTTInput, Variable
 from core.workers import consumer_worker_entry
 from utils import get_config, get_custom_config
 from .forms import dynamic_mqtt_form, form_dict_to_input
-from dataclasses import asdict
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +21,9 @@ class MQTTAgent:
     def __init__(self):
         self.config = get_config()
         self.custom_config = get_custom_config()
+
+        self.memory:Dict[str, Variable] = {}
+        self.stream_handler:Dict[str, List[Callable]] = {}
 
         self._runtime: Optional[PlotuneRuntime] = None
         self._api: Optional[FastAPI] = None
@@ -93,16 +95,47 @@ class MQTTAgent:
             msg = await self._mp_queue_get(self.new_topic_queue, timeout=1.0)
             if not msg:
                 continue
-            topic = msg.get("topic")
+            topic = msg.get("topic").replace("/","_")
             _timestamp = msg.get("timestamp", "No information")
-            if topic:
-                try:
-                    await self.runtime.core_client.add_variable(
-                        variable_name=topic,
-                        variable_desc=f"{_timestamp}",
-                    )
-                except Exception:
-                    logger.exception("Failed to add variable for topic %s", topic)
+            if not topic:
+                continue
+
+            try:
+                coro = self.runtime.core_client.add_variable(
+                    variable_name=topic,
+                    variable_desc=f"{_timestamp}",
+                )
+
+                # try to locate a "runtime" loop; fall back to captured main loop
+                target_loop = None
+                for attr in ("_loop", "loop", "event_loop", "_event_loop"):
+                    maybe = getattr(self.runtime, attr, None)
+                    if isinstance(maybe, asyncio.AbstractEventLoop):
+                        target_loop = maybe
+                        break
+
+                if target_loop is None:
+                    target_loop = self._main_loop
+
+                if target_loop is None:
+                    # last resort: schedule on current loop but don't await (may fail)
+                    fut = asyncio.ensure_future(coro)
+                    def _cb(f):
+                        if f.exception():
+                            logger.exception("add_variable failed (ensure_future) for %s", topic)
+                    fut.add_done_callback(_cb)
+                else:
+                    fut = asyncio.run_coroutine_threadsafe(coro, target_loop)
+                    def _done(future):
+                        try:
+                            future.result()  # trigger exception if any for logging
+                            logger.info("Added variable for topic %s", topic)
+                        except Exception:
+                            logger.exception("Failed to add variable for topic %s", topic)
+                    fut.add_done_callback(_done)
+
+            except Exception:
+                logger.exception("Error scheduling add_variable for topic %s", topic)
 
     async def handle_data_queue(self, data_q: Queue):
         while not self._stop_event.is_set():
@@ -111,10 +144,37 @@ class MQTTAgent:
                 continue
             try:
                 topic = msg.get("topic")
-                payload = msg.get("payload")
-                qos = msg.get("qos")
-                timestamp = msg.get("timestamp")
-                # processing logic here
+                raw_payload = msg.get("payload")
+                ts = msg.get("timestamp", time.time())
+
+                # normalize payload -> {"value": ..., "time": ...}
+                if isinstance(raw_payload, dict):
+                    value = raw_payload.get("value", raw_payload.get("val", raw_payload))
+                    when = raw_payload.get("time", raw_payload.get("timestamp", ts))
+                else:
+                    value = raw_payload
+                    when = ts
+
+                normalized = {"value": value, "time": when}
+
+                # ensure memory structure
+                entry = self.memory.get(topic)
+                if not entry:
+                    entry = {"payload": []}
+                    self.memory[topic] = entry
+                entry["payload"].append(normalized)
+
+                handlers = self.stream_handler.get(topic)
+                if not handlers:
+                    continue
+
+                # schedule delivery on each handler's loop
+                for cb, cb_loop in list(handlers):
+                    try:
+                        asyncio.run_coroutine_threadsafe(cb(normalized), cb_loop)
+                    except Exception:
+                        logger.exception("Failed to schedule websocket callback for topic %s", topic)
+
             except Exception:
                 logger.exception("Error processing message from data queue")
 
@@ -124,7 +184,42 @@ class MQTTAgent:
         websocket: WebSocket,
         data: Any,
     ) -> None:
-        logger.info("Client requested signal '%s'", signal_name)
+        topic = signal_name.replace("_","/")
+        
+        logger.info("Client requested topic '%s'", topic)
+
+        entry = self.memory.get(topic)
+        if entry:
+            for payload in entry["payload"]:
+                await websocket.send_json({"timestamp": payload["time"], "value": payload["value"]})
+
+        current_loop = asyncio.get_running_loop()
+
+        async def send_payload(payload: dict):
+            await websocket.send_json({"timestamp": payload["time"], "value": payload["value"]})
+
+        self.stream_handler.setdefault(topic, []).append((send_payload, current_loop))
+
+        try:
+            while True:
+                await websocket.receive_text()
+        except (WebSocketDisconnect, Exception):
+            pass
+        finally:
+            handlers = self.stream_handler.get(topic, [])
+            try:
+                handlers.remove((send_payload, current_loop))
+            except ValueError:
+                # try to remove by function identity if tuple identity differs
+                for h in list(handlers):
+                    if getattr(h[0], "__name__", None) == getattr(send_payload, "__name__", None) and h[1] is current_loop:
+                        handlers.remove(h)
+                        break
+            if not handlers:
+                self.stream_handler.pop(topic, None)
+            await websocket.close()
+
+
 
     @property
     def api(self) -> FastAPI:
