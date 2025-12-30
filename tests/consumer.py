@@ -21,8 +21,9 @@ def on_message(client, topic, payload, qos, properties):
     if topic not in DISCOVERED_TOPICS:
         DISCOVERED_TOPICS.add(topic)
         logger.warning(f"NEW TOPIC DISCOVERED: {topic}")
-    
-    logger.info(f"RECV [{topic}] -> {payload.decode()}")
+
+    decoded_payload = payload.decode()
+    logger.info(f"RECV [{topic}] -> {decoded_payload}")
 
 def on_disconnect(client, packet, exc=None):
     logger.info("Disconnected")

@@ -1,0 +1,14 @@
+from uuid import uuid4
+from dataclasses import dataclass, field
+
+@dataclass
+class MQTTInput:
+    topic:str
+    broker_ip: str
+    broker_port: int = 1883
+    wild_topic:bool=True
+    qos: int = 1
+    keepalive: int = 60
+    clean_session: bool = True
+    ssl:bool = False
+    client_id: str = field(default_factory=lambda: f"plotune-{uuid4().hex[:6]}")

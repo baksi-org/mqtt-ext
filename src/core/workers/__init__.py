@@ -1,0 +1,1 @@
+from .consumer_worker import _worker_entry as consumer_worker_entry
