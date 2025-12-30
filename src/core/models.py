@@ -7,9 +7,9 @@ MAX_HISTORY = 240
 @dataclass
 class MQTTInput:
     topic:str
+    producer:bool
     broker_ip: str
     broker_port: int = 1883
-    wild_topic:bool=True
     qos: int = 1
     keepalive: int = 60
     clean_session: bool = True
@@ -17,7 +17,7 @@ class MQTTInput:
     client_id: str = field(default_factory=lambda: f"plotune-{uuid4().hex[:6]}")
 
 @dataclass
-class Variable:
+class SignalVariable:
     name: str
     payload: deque = None
     def __post_init__(self):

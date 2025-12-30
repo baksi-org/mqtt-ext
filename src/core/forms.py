@@ -57,9 +57,9 @@ def dynamic_mqtt_form() -> dict:
             default="plotune/#",
         )
         .add_checkbox(
-            "wild_topic",
-            "Wild Topic",
-            default=True,
+            "producer",
+            "Set as producer",
+            default=False,
         )
     )
     
@@ -104,7 +104,7 @@ def form_dict_to_input(data: dict) -> MQTTInput:
         topic= data.get("topic"),
         broker_ip=  data.get("broker_ip"),
         broker_port=  safe_int(data.get("broker_port")) ,
-        wild_topic= bool(data.get("wild_topic")),
+        producer= bool(data.get("producer")),
         qos=  safe_int(data.get("qos")[0]),
         keepalive=  safe_int(data.get("keepalive")),
         clean_session= bool(data.get("clean_session")),

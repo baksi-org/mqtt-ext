@@ -34,8 +34,13 @@ class _AsyncMQTTConsumer:
         self.client.on_disconnect = self._on_disconnect
 
     async def connect(self):
-        # gmqtt connect is coroutine
-        await self.client.connect(self.cfg.broker_ip, self.cfg.broker_port, ssl=self.cfg.ssl, keepalive=self.cfg.keepalive)
+        
+        await self.client.connect(
+            self.cfg.broker_ip, 
+            self.cfg.broker_port, 
+            ssl=self.cfg.ssl, 
+            keepalive=self.cfg.keepalive
+            )
 
     def _on_connect(self, client, flags, rc, properties):
         logger.info("MQTT connected, subscribing to %s", self.cfg.topic)
@@ -102,8 +107,18 @@ class _AsyncMQTTConsumer:
         logger.info("AsyncMQTTConsumer exiting run_forever.")
 
 
-async def _worker_async_main(cfg: MQTTInput, data_queue: Queue, new_topic_queue: Queue, stop_event: Any):
-    consumer = _AsyncMQTTConsumer(cfg, data_queue, new_topic_queue, stop_event)
+async def _worker_async_main(
+        cfg: MQTTInput, 
+        data_queue: Queue, 
+        new_topic_queue: Queue, 
+        stop_event: Any
+        ):
+    consumer = _AsyncMQTTConsumer(
+        cfg, 
+        data_queue,
+        new_topic_queue, 
+        stop_event
+        )
     await consumer.run_forever()
 
 def _worker_entry(cfg_dict: dict, data_queue: Queue, new_topic_queue: Queue, stop_event: Any):
