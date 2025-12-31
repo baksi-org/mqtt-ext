@@ -90,9 +90,10 @@ EOF
 # --------------------------------------------------
 # Package
 # --------------------------------------------------
-echo "Creating tar.gz archive..."
-cd "$DIST_DIR"
-tar -czf "$ARCHIVE_NAME" "$APP_NAME"/*
+echo "Creating tar.gz archive (Root-level files)..."
+cd "$DIST_DIR/$APP_NAME"
+tar -czf "../$ARCHIVE_NAME" .
+cd ..
 sha256sum "$ARCHIVE_NAME" > "$ARCHIVE_NAME.sha256"
 cd ..
 
