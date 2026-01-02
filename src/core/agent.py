@@ -61,7 +61,8 @@ class MQTTAgent:
         server.on_event("/bridge/{variable_name}", method="POST")(self.on_bridge)
         server.on_event("/unbridge/{variable_name}", method="POST")(self.on_unbridge)
 
-        # runtime.server may register websockets; SDK should use "/fetch/{signal_name:path}"
+        # runtime.server may register websockets; SDK should use
+        # "/fetch/{signal_name:path}"
         server.on_ws()(self.stream)
 
     async def on_bridge(self, variable: Variable):
@@ -147,7 +148,8 @@ class MQTTAgent:
         except Exception:
             return None
 
-    # runtime-side worker: runs on runtime event loop, drains thread-safe queue and calls add_variable
+    # runtime-side worker: runs on runtime event loop, drains thread-safe
+    # queue and calls add_variable
     async def _runtime_push_worker(self):
         loop = asyncio.get_running_loop()
         q = self._runtime_push_queue
@@ -179,7 +181,8 @@ class MQTTAgent:
             topic_key = self._topic_to_key(raw_topic)
             timestamp = msg.get("timestamp", "No information")
 
-            # push into runtime-side thread-safe queue (created on runtime startup)
+            # push into runtime-side thread-safe queue (created on runtime
+            # startup)
             if self._runtime_push_queue is not None:
                 try:
                     self._runtime_push_queue.put_nowait((topic_key, timestamp))
@@ -188,7 +191,8 @@ class MQTTAgent:
                         "Failed to push new topic to runtime queue: %s", topic_key
                     )
             else:
-                # runtime not started yet -> best-effort schedule using current loop (may fail)
+                # runtime not started yet -> best-effort schedule using current
+                # loop (may fail)
                 try:
                     coro = self.runtime.core_client.add_variable(
                         variable_name=topic_key, variable_desc=str(timestamp)
@@ -347,7 +351,8 @@ class MQTTAgent:
         signal.signal(signal.SIGINT, self.handle_sigint)
         signal.signal(signal.SIGTERM, self.handle_sigint)
 
-        # register runtime-side startup/shutdown handlers on the FastAPI app so runtime worker runs on runtime loop
+        # register runtime-side startup/shutdown handlers on the FastAPI app so
+        # runtime worker runs on runtime loop
         app = self.runtime.server.api
 
         @app.on_event("startup")

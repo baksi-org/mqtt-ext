@@ -172,7 +172,8 @@ async def task_bridge_from_ws_to_mqtt(
 ) -> None:
     schema = "wss" if conf.ssl else "ws"
     base = _normalize_topic_base(conf.topic)
-    # variable.name is expected already normalized (you mentioned using '_' hack). Do not modify here.
+    # variable.name is expected already normalized (you mentioned using '_'
+    # hack). Do not modify here.
     url = (
         f"{schema}://{variable.source_ip}:{variable.source_port}/fetch/{variable.name}"
     )

@@ -6,7 +6,8 @@ from gmqtt import Client as MQTTClient
 BROKER_HOST = "127.0.0.1"
 BROKER_PORT = 1883
 SUBSCRIBE_TOPIC = "plotune/#"  # '#' is the wild card for topics
-QOS = 1  # 0: Fire and forget , 1: At least once. Guaranteed delivery, 2: Exactly once.
+# 0: Fire and forget , 1: At least once. Guaranteed delivery, 2: Exactly once.
+QOS = 1
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
