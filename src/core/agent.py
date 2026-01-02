@@ -67,7 +67,9 @@ class MQTTAgent:
     async def on_bridge(self, variable: Variable):
         if not self.producer_conf:
             try:
-                await self.runtime.core_client.toast("MQTT Extension", "No producer data source added", duration=5000)
+                await self.runtime.core_client.toast(
+                    "MQTT Extension", "No producer data source added", duration=5000
+                )
             except Exception:
                 logger.warning("Toast failed (runtime not ready)")
             logger.error("Producer configuration is not defined by user")
@@ -77,7 +79,9 @@ class MQTTAgent:
         if name in self.bridges:
             return
 
-        task = asyncio.create_task(task_bridge(variable, self.producer_conf, self._stop_event))
+        task = asyncio.create_task(
+            task_bridge(variable, self.producer_conf, self._stop_event)
+        )
         self.bridges[name] = task
 
     async def on_unbridge(self, variable: Variable):
@@ -102,7 +106,7 @@ class MQTTAgent:
         proc = Process(
             target=consumer_worker_entry,
             args=(data, data_queue, self.new_topic_queue, self._stop_event),
-            daemon=True
+            daemon=True,
         )
         proc.start()
 
@@ -112,7 +116,9 @@ class MQTTAgent:
         if not self._agent_loop:
             self._start_agent_loop()
 
-        asyncio.run_coroutine_threadsafe(self.handle_data_queue(data_queue), self._agent_loop)
+        asyncio.run_coroutine_threadsafe(
+            self.handle_data_queue(data_queue), self._agent_loop
+        )
 
         return {"status": "success", "message": "Form saved!"}
 
@@ -155,7 +161,9 @@ class MQTTAgent:
                 return
             topic, timestamp = item
             try:
-                await self.runtime.core_client.add_variable(variable_name=topic, variable_desc=str(timestamp))
+                await self.runtime.core_client.add_variable(
+                    variable_name=topic, variable_desc=str(timestamp)
+                )
                 logger.info("Added variable for topic %s", topic)
             except Exception:
                 logger.exception("Failed to add variable for topic %s", topic)
@@ -176,18 +184,27 @@ class MQTTAgent:
                 try:
                     self._runtime_push_queue.put_nowait((topic_key, timestamp))
                 except Exception:
-                    logger.exception("Failed to push new topic to runtime queue: %s", topic_key)
+                    logger.exception(
+                        "Failed to push new topic to runtime queue: %s", topic_key
+                    )
             else:
                 # runtime not started yet -> best-effort schedule using current loop (may fail)
                 try:
-                    coro = self.runtime.core_client.add_variable(variable_name=topic_key, variable_desc=str(timestamp))
+                    coro = self.runtime.core_client.add_variable(
+                        variable_name=topic_key, variable_desc=str(timestamp)
+                    )
                     try:
                         asyncio.ensure_future(coro)
-                        logger.warning("Scheduled add_variable via ensure_future (runtime loop may differ). topic=%s", topic_key)
+                        logger.warning(
+                            "Scheduled add_variable via ensure_future (runtime loop may differ). topic=%s",
+                            topic_key,
+                        )
                     except Exception:
                         logger.exception("ensure_future failed for topic %s", topic_key)
                 except Exception:
-                    logger.exception("Failed to call add_variable directly for %s", topic_key)
+                    logger.exception(
+                        "Failed to call add_variable directly for %s", topic_key
+                    )
 
     async def handle_data_queue(self, data_q: Queue):
         while not self._stop_event.is_set():
@@ -204,7 +221,9 @@ class MQTTAgent:
                 ts = msg.get("timestamp", time.time())
 
                 if isinstance(raw_payload, dict):
-                    value = raw_payload.get("value", raw_payload.get("val", raw_payload))
+                    value = raw_payload.get(
+                        "value", raw_payload.get("val", raw_payload)
+                    )
                     when = raw_payload.get("time", raw_payload.get("timestamp", ts))
                 else:
                     value = raw_payload
@@ -226,7 +245,10 @@ class MQTTAgent:
                     try:
                         asyncio.run_coroutine_threadsafe(cb(normalized), cb_loop)
                     except Exception:
-                        logger.exception("Failed to schedule websocket callback for topic %s", raw_topic)
+                        logger.exception(
+                            "Failed to schedule websocket callback for topic %s",
+                            raw_topic,
+                        )
 
             except Exception:
                 logger.exception("Error processing message from data queue")
@@ -238,12 +260,16 @@ class MQTTAgent:
         entry = self.memory.get(key)
         if entry:
             for payload in entry.payload:
-                await websocket.send_json({"timestamp": payload["time"], "value": payload["value"]})
+                await websocket.send_json(
+                    {"timestamp": payload["time"], "value": payload["value"]}
+                )
 
         current_loop = asyncio.get_running_loop()
 
         async def send_payload(payload: dict):
-            await websocket.send_json({"timestamp": payload["time"], "value": payload["value"]})
+            await websocket.send_json(
+                {"timestamp": payload["time"], "value": payload["value"]}
+            )
 
         self.stream_handler.setdefault(key, []).append((send_payload, current_loop))
 
@@ -255,7 +281,9 @@ class MQTTAgent:
         finally:
             handlers = self.stream_handler.get(key, [])
             for h in list(handlers):
-                if h[1] is current_loop and getattr(h[0], "__name__", None) == getattr(send_payload, "__name__", None):
+                if h[1] is current_loop and getattr(h[0], "__name__", None) == getattr(
+                    send_payload, "__name__", None
+                ):
                     handlers.remove(h)
             if not handlers:
                 self.stream_handler.pop(key, None)

@@ -13,11 +13,16 @@ from core.forms import form_dict_to_input
 logger = logging.getLogger("mqtt_consumer_worker")
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+handler.setFormatter(
+    logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+)
 logger.addHandler(handler)
 
+
 class _AsyncMQTTConsumer:
-    def __init__(self, cfg: MQTTInput, data_queue: Queue, new_topic_queue: Queue, stop_event: Any):
+    def __init__(
+        self, cfg: MQTTInput, data_queue: Queue, new_topic_queue: Queue, stop_event: Any
+    ):
         self.cfg = cfg
         self.data_queue = data_queue
         self.new_topic_queue = new_topic_queue
@@ -28,19 +33,21 @@ class _AsyncMQTTConsumer:
         self._loop = asyncio.get_event_loop()
 
     def start_client(self):
-        self.client = MQTTClient(self.cfg.client_id, clean_session=self.cfg.clean_session)
+        self.client = MQTTClient(
+            self.cfg.client_id, clean_session=self.cfg.clean_session
+        )
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
         self.client.on_disconnect = self._on_disconnect
 
     async def connect(self):
-        
+
         await self.client.connect(
-            self.cfg.broker_ip, 
-            self.cfg.broker_port, 
-            ssl=self.cfg.ssl, 
-            keepalive=self.cfg.keepalive
-            )
+            self.cfg.broker_ip,
+            self.cfg.broker_port,
+            ssl=self.cfg.ssl,
+            keepalive=self.cfg.keepalive,
+        )
 
     def _on_connect(self, client, flags, rc, properties):
         logger.info("MQTT connected, subscribing to %s", self.cfg.topic)
@@ -57,20 +64,28 @@ class _AsyncMQTTConsumer:
 
     def _on_message(self, client, topic, payload, qos, properties):
         try:
-            decoded = payload.decode() if isinstance(payload, (bytes, bytearray)) else str(payload)
+            decoded = (
+                payload.decode()
+                if isinstance(payload, (bytes, bytearray))
+                else str(payload)
+            )
         except Exception:
             decoded = str(payload)
 
         if topic not in self.topics:
             self.topics.add(topic)
             # fire-and-forget
-            asyncio.create_task(self._put_mp_queue(self.new_topic_queue, {"topic": topic, "timestamp": time.time()}))
+            asyncio.create_task(
+                self._put_mp_queue(
+                    self.new_topic_queue, {"topic": topic, "timestamp": time.time()}
+                )
+            )
 
         parsed = None
         try:
             parsed = json.loads(decoded)
         except Exception:
-            parsed = None # Deliver no data
+            parsed = None  # Deliver no data
             logger.error(f"Unknown data format : {decoded}")
 
         msg = {
@@ -88,13 +103,17 @@ class _AsyncMQTTConsumer:
         max_backoff = 10
         while not self.stop_event.is_set():
             try:
-                logger.info("Trying to connect to MQTT broker %s:%s", self.cfg.broker_ip, self.cfg.broker_port)
+                logger.info(
+                    "Trying to connect to MQTT broker %s:%s",
+                    self.cfg.broker_ip,
+                    self.cfg.broker_port,
+                )
                 await self.connect()
                 backoff = 1
-                
+
                 while not self.stop_event.is_set():
                     await asyncio.sleep(0.5)
-                    
+
                 logger.info("Stop event set, disconnecting MQTT client")
                 await self.client.disconnect()
                 break
@@ -108,20 +127,15 @@ class _AsyncMQTTConsumer:
 
 
 async def _worker_async_main(
-        cfg: MQTTInput, 
-        data_queue: Queue, 
-        new_topic_queue: Queue, 
-        stop_event: Any
-        ):
-    consumer = _AsyncMQTTConsumer(
-        cfg, 
-        data_queue,
-        new_topic_queue, 
-        stop_event
-        )
+    cfg: MQTTInput, data_queue: Queue, new_topic_queue: Queue, stop_event: Any
+):
+    consumer = _AsyncMQTTConsumer(cfg, data_queue, new_topic_queue, stop_event)
     await consumer.run_forever()
 
-def _worker_entry(cfg_dict: dict, data_queue: Queue, new_topic_queue: Queue, stop_event: Any):
+
+def _worker_entry(
+    cfg_dict: dict, data_queue: Queue, new_topic_queue: Queue, stop_event: Any
+):
     logger.info("Worker process starting with config: %s", cfg_dict)
     cfg = form_dict_to_input(cfg_dict)
     try:
@@ -132,4 +146,3 @@ def _worker_entry(cfg_dict: dict, data_queue: Queue, new_topic_queue: Queue, sto
         logger.exception("Worker process exception")
     finally:
         logger.info("Worker process exiting.")
-

@@ -31,11 +31,17 @@ async def _ensure_client_connected(conf: MQTTInput, timeout: float = 5.0) -> MQT
         state = {"client": client, "connected": False, "lock": asyncio.Lock()}
 
         def _on_connect(c, flags, rc, properties):
-            logger.info("MQTT producer connected to %s:%s", conf.broker_ip, conf.broker_port)
+            logger.info(
+                "MQTT producer connected to %s:%s", conf.broker_ip, conf.broker_port
+            )
             state["connected"] = True
 
         def _on_disconnect(c, packet, exc=None):
-            logger.warning("MQTT producer disconnected from %s:%s", conf.broker_ip, conf.broker_port)
+            logger.warning(
+                "MQTT producer disconnected from %s:%s",
+                conf.broker_ip,
+                conf.broker_port,
+            )
             state["connected"] = False
 
         client.on_connect = _on_connect
@@ -48,7 +54,9 @@ async def _ensure_client_connected(conf: MQTTInput, timeout: float = 5.0) -> MQT
         if state["connected"]:
             return state["client"]
         try:
-            await client.connect(conf.broker_ip, conf.broker_port, ssl=conf.ssl, keepalive=conf.keepalive)
+            await client.connect(
+                conf.broker_ip, conf.broker_port, ssl=conf.ssl, keepalive=conf.keepalive
+            )
             # give gmqtt a moment to mark connected via callback
             await asyncio.sleep(0.05)
             state["connected"] = True
@@ -115,7 +123,10 @@ async def fetch_data(url: str, conf: MQTTInput, variable: Variable, stop_event) 
                 async with session.ws_connect(url) as ws:
                     backoff = 1.0
                     async for msg in ws:
-                        if callable(getattr(stop_event, "is_set", None)) and stop_event.is_set():
+                        if (
+                            callable(getattr(stop_event, "is_set", None))
+                            and stop_event.is_set()
+                        ):
                             await ws.close()
                             return
 
@@ -131,13 +142,18 @@ async def fetch_data(url: str, conf: MQTTInput, variable: Variable, stop_event) 
                                 await produce_data(conf, {"value": msg.data}, variable)
 
                             elif msg.type == aiohttp.WSMsgType.ERROR:
-                                logger.error("[%s] WS error: %s", variable.name, ws.exception())
+                                logger.error(
+                                    "[%s] WS error: %s", variable.name, ws.exception()
+                                )
                                 break
 
                         except asyncio.CancelledError:
                             raise
                         except Exception:
-                            logger.exception("[%s] Unexpected error while handling ws message", variable.name)
+                            logger.exception(
+                                "[%s] Unexpected error while handling ws message",
+                                variable.name,
+                            )
                     # if we dropped out of async for, try reconnect
             except aiohttp.ClientConnectorError as e:
                 logger.warning("[%s] WS connect failed: %s", variable.name, e)
@@ -151,9 +167,13 @@ async def fetch_data(url: str, conf: MQTTInput, variable: Variable, stop_event) 
             backoff = min(max_backoff, backoff * 2)
 
 
-async def task_bridge_from_ws_to_mqtt(variable: Variable, conf: MQTTInput, stop_event) -> None:
+async def task_bridge_from_ws_to_mqtt(
+    variable: Variable, conf: MQTTInput, stop_event
+) -> None:
     schema = "wss" if conf.ssl else "ws"
     base = _normalize_topic_base(conf.topic)
     # variable.name is expected already normalized (you mentioned using '_' hack). Do not modify here.
-    url = f"{schema}://{variable.source_ip}:{variable.source_port}/fetch/{variable.name}"
+    url = (
+        f"{schema}://{variable.source_ip}:{variable.source_port}/fetch/{variable.name}"
+    )
     await fetch_data(url, conf, variable, stop_event)

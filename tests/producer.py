@@ -13,14 +13,15 @@ TOPICS = [
     "plotune/sensor/pressure",
     "plotune/machine/motor_speed",
     "plotune/factory/status",
-    "plotune/energy/consumption"
+    "plotune/energy/consumption",
 ]
 MIN_INTERVAL = 0.1
 MAX_INTERVAL = 0.3
 QOS = 1
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
 
 async def producer_loop(client):
     while True:
@@ -29,7 +30,7 @@ async def producer_loop(client):
             payload = {
                 "value": round(random.uniform(20.0, 100.0), 2),
                 "timestamp": time.time(),
-                "client_id": client._client_id
+                "client_id": client._client_id,
             }
             client.publish(target_topic, json.dumps(payload), qos=QOS)
             logger.info(f"Published to {target_topic}")
@@ -38,9 +39,10 @@ async def producer_loop(client):
             logger.error(f"Error: {e}")
             break
 
+
 async def main():
     client = MQTTClient(f"producer-{uuid.uuid4()}")
-    
+
     try:
         await client.connect(BROKER_HOST, BROKER_PORT)
     except Exception as e:
@@ -55,6 +57,7 @@ async def main():
     finally:
         task.cancel()
         await client.disconnect()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

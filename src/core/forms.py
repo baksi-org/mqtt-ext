@@ -15,32 +15,16 @@ def dynamic_mqtt_form() -> dict:
     # ------------------------------------------------------------------
     (
         form.add_tab("Broker")
-        .add_text(
-            "broker_ip",
-            "Broker Host IP",
-            default="127.0.0.1",
-            required=True
-        )
-        .add_text(
-            "broker_port",
-            "Broker Port",
-            default="1883",
-            required=True
-        )
+        .add_text("broker_ip", "Broker Host IP", default="127.0.0.1", required=True)
+        .add_text("broker_port", "Broker Port", default="1883", required=True)
         .add_text(
             "keepalive",
             "Keep Alive",
             default="60",
         )
-        .add_checkbox(
-            "clean_session",
-            "Clean Session",
-            default=True
-        )
+        .add_checkbox("clean_session", "Clean Session", default=True)
         .add_combobox(
-            "qos",
-            "QoS",
-            ["0 : Fire Forget","1 : At least once","2 : Exactly once"]
+            "qos", "QoS", ["0 : Fire Forget", "1 : At least once", "2 : Exactly once"]
         )
         .add_checkbox(
             "ssl",
@@ -48,7 +32,7 @@ def dynamic_mqtt_form() -> dict:
             default=False,
         )
     )
-    
+
     (
         form.add_tab("Topic")
         .add_text(
@@ -62,7 +46,6 @@ def dynamic_mqtt_form() -> dict:
             default=False,
         )
     )
-    
 
     # ------------------------------------------------------------------
     # Actions
@@ -73,15 +56,13 @@ def dynamic_mqtt_form() -> dict:
     base_url = f"http://{host}:{port}"
 
     (
-        form.add_group("Actions")
-        .add_button(
+        form.add_group("Actions").add_button(
             "start",
             "Start",
             {
                 "method": "POST",
                 "url": f"{base_url}/start",
-                "payload_fields": [
-                ],
+                "payload_fields": [],
             },
         )
     )
@@ -101,12 +82,12 @@ def form_dict_to_input(data: dict) -> MQTTInput:
             return default
 
     return MQTTInput(
-        topic= data.get("topic"),
-        broker_ip=  data.get("broker_ip"),
-        broker_port=  safe_int(data.get("broker_port")) ,
-        producer= bool(data.get("producer")),
-        qos=  safe_int(data.get("qos")[0]),
-        keepalive=  safe_int(data.get("keepalive")),
-        clean_session= bool(data.get("clean_session")),
-        ssl = bool(data.get("ssl", False))
+        topic=data.get("topic"),
+        broker_ip=data.get("broker_ip"),
+        broker_port=safe_int(data.get("broker_port")),
+        producer=bool(data.get("producer")),
+        qos=safe_int(data.get("qos")[0]),
+        keepalive=safe_int(data.get("keepalive")),
+        clean_session=bool(data.get("clean_session")),
+        ssl=bool(data.get("ssl", False)),
     )
